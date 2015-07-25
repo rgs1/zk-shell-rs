@@ -2,7 +2,9 @@
 name = "zk-shell-rs"
 version = "0.1.0"
 authors = ["Raul Gutierrez S. <rgs@itevenworks.net>"]
-
+repository = "https://github.com/rgs1/zk-shell-rs.git"
+keywords = ["zookeeper", "distributed systems", "shell"]
+readme = "README.md"
 
 [dependencies.zookeeper]
 git = "https://github.com/bonifaido/rust-zookeeper.git"
