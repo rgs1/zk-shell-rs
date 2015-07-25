@@ -1,0 +1,11 @@
+[package]
+name = "zk-shell-rs"
+version = "0.1.0"
+authors = ["Raul Gutierrez S. <rgs@itevenworks.net>"]
+
+
+[dependencies.zookeeper]
+git = "https://github.com/bonifaido/rust-zookeeper.git"
+
+[dependencies]
+getopts = "*"
