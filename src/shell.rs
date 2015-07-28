@@ -21,6 +21,25 @@ pub struct Shell {
     session_timeout: u64,
 }
 
+// are we connected?
+macro_rules! fetch_zk {
+    ($e:expr) => (
+        match $e {
+            Some(ref __zk) => __zk,
+            _ => {
+                println!("Not connected.");
+                return;
+            }
+        })
+}
+
+macro_rules! check_args {
+    ($args:ident, $count:expr) => (
+        if $args.len() != $count {
+            return;
+        })
+}
+
 impl Shell {
     pub fn new(hosts: &str) -> Shell {
         Shell {
@@ -67,18 +86,8 @@ impl Shell {
     }
 
     fn get(&mut self, args: Vec<&str>) {
-        if args.len() != 1 {
-            return;
-        }
-
-        // are we connected?
-        let zk = match self.zk {
-            Some(ref __zk) => __zk,
-            _ => {
-                println!("Not connected.");
-                return;
-            }
-        };
+        check_args!(args, 1);
+        let zk = fetch_zk!(self.zk);
 
         let data = zk.get_data(args[0], false);
         if data.is_ok() {
