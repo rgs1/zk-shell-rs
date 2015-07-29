@@ -4,7 +4,8 @@ use std::io::Write;
 use std::str;
 use std::time::Duration;
 
-use zookeeper::{Watcher, WatchedEvent, ZkError, ZooKeeper};
+use zookeeper::{Acl, CreateMode, Watcher, WatchedEvent, ZkError, ZooKeeper};
+use zookeeper::perms;
 
 
 struct MyWatcher;
@@ -19,6 +20,7 @@ pub struct Shell {
     hosts: String,
     zk: Option<ZooKeeper>,
     session_timeout: u64,
+    default_acl: Vec<Acl>,
 }
 
 // are we connected?
@@ -50,10 +52,17 @@ fn report_error(error: ZkError, path: &str) {
 
 impl Shell {
     pub fn new(hosts: &str) -> Shell {
+        let world_all = Acl {
+            perms: perms::ALL,
+            scheme: "world".to_string(),
+            id: "anyone".to_string()
+        };
+
         Shell {
             hosts: hosts.to_string(),
             zk: None,
-            session_timeout: 5
+            session_timeout: 5,
+            default_acl: vec![world_all],
         }
     }
 
@@ -90,6 +99,7 @@ impl Shell {
                 "get" => self.get(args),
                 "set" => self.set(args),
                 "ls" => self.ls(args),
+                "create" => self.create(args),
                 unknown => println!("Unknown command: {}", unknown)
             }
         }
@@ -133,6 +143,27 @@ impl Shell {
 
         match ret {
             Ok(children) => println!("{}", children.join(" ")),
+            Err(err) => report_error(err, path),
+        }
+    }
+
+    fn create(&mut self, args: Vec<&str>) {
+        check_args!(args, 2, "<path> <data>");
+        let zk = fetch_zk!(self.zk);
+        let path = args[0];
+        let data = args[1].as_bytes().to_vec();
+
+        // FIXME: ACLs are not copyable so we can't use default_acl
+        let world_all = Acl {
+            perms: perms::ALL,
+            scheme: "world".to_string(),
+            id: "anyone".to_string()
+        };
+
+        let ret = zk.create(path, data, vec![world_all], CreateMode::Persistent);
+
+        match ret {
+            Ok(_) => (),
             Err(err) => report_error(err, path),
         }
     }
