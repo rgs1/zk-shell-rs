@@ -82,6 +82,7 @@ impl Shell {
             match pieces[0] {
                 "get" => self.get(args),
                 "set" => self.set(args),
+                "ls" => self.ls(args),
                 unknown => println!("Unknown command: {}", unknown)
             }
         }
@@ -109,6 +110,17 @@ impl Shell {
         match ret {
             Ok(_) => (),
             Err(e) => println!("set failed: {}", e)
+        }
+    }
+
+    fn ls(&mut self, args: Vec<&str>) {
+        check_args!(args, 1, "<path>");
+        let zk = fetch_zk!(self.zk);
+        let path = args[0];
+        let ret = zk.get_children(path, false);
+        if ret.is_ok() {
+            let children = ret.unwrap();
+            println!("{}", children.join(" "));
         }
     }
 }
