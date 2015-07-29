@@ -46,6 +46,7 @@ macro_rules! check_args {
 fn report_error(error: ZkError, path: &str) {
     match error {
         ZkError::NoNode => println!("Path {} does not exist.", path),
+        ZkError::NotEmpty => println!("Path {} is not empty.", path),
         unknown => println!("Unknown error: {:?}", unknown),
     }
 }
@@ -100,6 +101,7 @@ impl Shell {
                 "set" => self.set(args),
                 "ls" => self.ls(args),
                 "create" => self.create(args),
+                "rm" => self.rm(args),
                 unknown => println!("Unknown command: {}", unknown)
             }
         }
@@ -166,5 +168,18 @@ impl Shell {
             Ok(_) => (),
             Err(err) => report_error(err, path),
         }
+    }
+
+    fn rm(&mut self, args: Vec<&str>) {
+        check_args!(args, 1, "<path>");
+        let zk = fetch_zk!(self.zk);
+        let path = args[0];
+        let ret = zk.delete(path, -1);
+
+        match ret {
+            Ok(()) =>  (),
+            Err(err) => report_error(err, path),
+        }
+
     }
 }
