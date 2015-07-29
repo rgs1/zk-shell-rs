@@ -34,9 +34,9 @@ macro_rules! fetch_zk {
 }
 
 macro_rules! check_args {
-    ($args:ident, $count:expr) => (
+    ($args:ident, $count:expr, $params:expr) => (
         if $args.len() != $count {
-            println!("Wrong number or arguments");
+            println!("Wrong number of arguments, expected parameters: {}", $params);
             return;
         })
 }
@@ -89,7 +89,7 @@ impl Shell {
     }
 
     fn get(&mut self, args: Vec<&str>) {
-        check_args!(args, 1);
+        check_args!(args, 1, "<path>");
         let zk = fetch_zk!(self.zk);
 
         let data = zk.get_data(args[0], false);
@@ -100,7 +100,7 @@ impl Shell {
     }
 
     fn set(&mut self, args: Vec<&str>) {
-        check_args!(args, 2);
+        check_args!(args, 2, "<path> <data>");
         let zk = fetch_zk!(self.zk);
 
         let path = args[0];
