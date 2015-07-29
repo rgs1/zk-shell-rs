@@ -36,6 +36,7 @@ macro_rules! fetch_zk {
 macro_rules! check_args {
     ($args:ident, $count:expr) => (
         if $args.len() != $count {
+            println!("Wrong number or arguments");
             return;
         })
 }
@@ -77,8 +78,10 @@ impl Shell {
             }
 
             // dispatch the command
+            let args = pieces[1..].to_vec();
             match pieces[0] {
-                "get" => self.get(pieces[1..].to_vec()),
+                "get" => self.get(args),
+                "set" => self.set(args),
                 unknown => println!("Unknown command: {}", unknown)
             }
         }
@@ -93,6 +96,19 @@ impl Shell {
         if data.is_ok() {
             let (bytes, _) = data.unwrap();
             println!("{}", str::from_utf8(&bytes[..]).unwrap().to_string());
+        }
+    }
+
+    fn set(&mut self, args: Vec<&str>) {
+        check_args!(args, 2);
+        let zk = fetch_zk!(self.zk);
+
+        let path = args[0];
+        let data = args[1].as_bytes().to_vec();
+        let ret = zk.set_data(path, data, -1);
+        match ret {
+            Ok(_) => (),
+            Err(e) => println!("set failed: {}", e)
         }
     }
 }
