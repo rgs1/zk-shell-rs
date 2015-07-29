@@ -4,7 +4,7 @@ use std::io::Write;
 use std::str;
 use std::time::Duration;
 
-use zookeeper::{Watcher, WatchedEvent, ZooKeeper};
+use zookeeper::{Watcher, WatchedEvent, ZkError, ZooKeeper};
 
 
 struct MyWatcher;
@@ -39,6 +39,13 @@ macro_rules! check_args {
             println!("Wrong number of arguments, expected parameters: {}", $params);
             return;
         })
+}
+
+fn report_error(error: ZkError, path: &str) {
+    match error {
+        ZkError::NoNode => println!("Path {} does not exist.", path),
+        unknown => println!("Unknown error: {:?}", unknown),
+    }
 }
 
 impl Shell {
@@ -92,24 +99,29 @@ impl Shell {
     fn get(&mut self, args: Vec<&str>) {
         check_args!(args, 1, "<path>");
         let zk = fetch_zk!(self.zk);
+        let path = args[0];
+        let ret = zk.get_data(path, false);
 
-        let data = zk.get_data(args[0], false);
-        if data.is_ok() {
-            let (bytes, _) = data.unwrap();
-            println!("{}", str::from_utf8(&bytes[..]).unwrap().to_string());
+        match ret {
+            Ok(data_stat) =>  {
+                let (bytes, _) = data_stat;
+                let datastr = str::from_utf8(&bytes[..]).unwrap().to_string();
+                println!("{}", datastr);
+            },
+            Err(err) => report_error(err, path),
         }
     }
 
     fn set(&mut self, args: Vec<&str>) {
         check_args!(args, 2, "<path> <data>");
         let zk = fetch_zk!(self.zk);
-
         let path = args[0];
         let data = args[1].as_bytes().to_vec();
         let ret = zk.set_data(path, data, -1);
+
         match ret {
             Ok(_) => (),
-            Err(e) => println!("set failed: {}", e)
+            Err(err) => report_error(err, path),
         }
     }
 
@@ -118,9 +130,10 @@ impl Shell {
         let zk = fetch_zk!(self.zk);
         let path = args[0];
         let ret = zk.get_children(path, false);
-        if ret.is_ok() {
-            let children = ret.unwrap();
-            println!("{}", children.join(" "));
+
+        match ret {
+            Ok(children) => println!("{}", children.join(" ")),
+            Err(err) => report_error(err, path),
         }
     }
 }
