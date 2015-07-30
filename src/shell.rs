@@ -65,12 +65,8 @@ impl Shell {
 
     pub fn run(&mut self) {
         if !self.hosts.is_empty() {
-            println!("Connecting...");
-            let zk = ZooKeeper::connect(
-                &self.hosts,
-                Duration::from_secs(self.session_timeout),
-                MyWatcher).unwrap();
-            self.zk = Some(zk);
+            let hosts = self.hosts.clone();
+            self.connect_to(&hosts);
         }
 
         loop {
@@ -99,6 +95,8 @@ impl Shell {
                 "create" => self.create(args),
                 "rm" => self.rm(args),
                 "exists" => self.exists(args),
+                "disconnect" => self.disconnect(),
+                "connect" => self.connect(args),
                 unknown => println!("Unknown command: {}", unknown)
             }
         }
@@ -230,6 +228,35 @@ impl Shell {
         match ret {
             Ok(stat) => println!("{:?}", stat),
             Err(err) => report_error(err, path),
+        }
+    }
+
+    fn disconnect(&mut self) {
+        {
+            let zk = fetch_zk!(self.zk);
+            zk.close();
+        }
+        self.zk = None;
+    }
+
+    fn connect(&mut self, args: Vec<&str>) {
+        let _ = check_args!(args, 1, 1, "<hosts>");
+
+        if self.zk.is_some() {
+            let zk = fetch_zk!(self.zk);
+            zk.close();
+        }
+        self.zk = None;
+        self.connect_to(args[0]);
+    }
+
+    fn connect_to(&mut self, hosts: &str) {
+        println!("Connecting to {}...", hosts);
+        let timeout = Duration::from_secs(self.session_timeout);
+        let result = ZooKeeper::connect(hosts, timeout, MyWatcher);
+        match result {
+            Ok(zk) => { self.zk = Some(zk); },
+            Err(error) => println!("{:?}", error)
         }
     }
 }
