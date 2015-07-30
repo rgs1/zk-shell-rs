@@ -98,6 +98,7 @@ impl Shell {
                 "ls" => self.ls(args),
                 "create" => self.create(args),
                 "rm" => self.rm(args),
+                "exists" => self.exists(args),
                 unknown => println!("Unknown command: {}", unknown)
             }
         }
@@ -185,6 +186,18 @@ impl Shell {
 
         match ret {
             Ok(()) =>  (),
+            Err(err) => report_error(err, path),
+        }
+    }
+
+    fn exists(&mut self, args: Vec<&str>) {
+        let _ = check_args!(args, 1, 1, "<path>");
+        let zk = fetch_zk!(self.zk);
+        let path = args[0];
+        let ret = zk.exists(path, false);
+
+        match ret {
+            Ok(stat) => println!("{:?}", stat),
             Err(err) => report_error(err, path),
         }
     }
