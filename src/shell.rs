@@ -36,10 +36,12 @@ macro_rules! fetch_zk {
 }
 
 macro_rules! check_args {
-    ($args:ident, $count:expr, $params:expr) => (
-        if $args.len() != $count {
+    ($args:ident, $min:expr, $max:expr, $params:expr) => (
+        if $args.len() < $min || $args.len() > $max {
             println!("Wrong number of arguments, expected parameters: {}", $params);
             return;
+        } else {
+            $args.len()
         })
 }
 
@@ -103,7 +105,7 @@ impl Shell {
     }
 
     fn get(&mut self, args: Vec<&str>) {
-        check_args!(args, 1, "<path>");
+        let _ = check_args!(args, 1, 1, "<path>");
         let zk = fetch_zk!(self.zk);
         let path = args[0];
         let ret = zk.get_data(path, false);
@@ -119,7 +121,7 @@ impl Shell {
     }
 
     fn set(&mut self, args: Vec<&str>) {
-        check_args!(args, 2, "<path> <data>");
+        let _ = check_args!(args, 2, 2, "<path> <data>");
         let zk = fetch_zk!(self.zk);
         let path = args[0];
         let data = args[1].as_bytes().to_vec();
@@ -132,7 +134,7 @@ impl Shell {
     }
 
     fn ls(&mut self, args: Vec<&str>) {
-        check_args!(args, 1, "<path>");
+        let _ = check_args!(args, 1, 1, "<path>");
         let zk = fetch_zk!(self.zk);
         let path = args[0];
         let ret = zk.get_children(path, false);
@@ -144,13 +146,30 @@ impl Shell {
     }
 
     fn create(&mut self, args: Vec<&str>) {
-        check_args!(args, 2, "<path> <data>");
+        let mut mode: CreateMode = CreateMode::Persistent;
+
+        let argc = check_args!(args, 2, 4, "<path> <data> [ephemeral] [sequential]");
+        if argc >= 3 {
+            if args[2].to_lowercase() == "true" {
+                mode = CreateMode::Ephemeral;
+            }
+        }
+
+        if argc == 4 {
+            if args[3].to_lowercase() == "true" {
+                mode = match mode {
+                    CreateMode::Ephemeral => CreateMode::EphemeralSequential,
+                    _ => CreateMode::PersistentSequential
+                }
+            }
+        }
+
         let zk = fetch_zk!(self.zk);
         let path = args[0];
         let data = args[1].as_bytes().to_vec();
 
         let ret = zk.create(
-            path, data, self.default_acl.clone(), CreateMode::Persistent);
+            path, data, self.default_acl.clone(), mode);
 
         match ret {
             Ok(_) => (),
@@ -159,7 +178,7 @@ impl Shell {
     }
 
     fn rm(&mut self, args: Vec<&str>) {
-        check_args!(args, 1, "<path>");
+        let _ = check_args!(args, 1, 1, "<path>");
         let zk = fetch_zk!(self.zk);
         let path = args[0];
         let ret = zk.delete(path, -1);
@@ -168,6 +187,5 @@ impl Shell {
             Ok(()) =>  (),
             Err(err) => report_error(err, path),
         }
-
     }
 }
