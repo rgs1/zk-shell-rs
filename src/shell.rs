@@ -5,7 +5,7 @@ use std::str;
 use std::time::Duration;
 
 use zookeeper::{Acl, CreateMode, Watcher, WatchedEvent, ZkError, ZooKeeper};
-use zookeeper::perms;
+use zookeeper::acls;
 
 
 struct MyWatcher;
@@ -53,17 +53,11 @@ fn report_error(error: ZkError, path: &str) {
 
 impl Shell {
     pub fn new(hosts: &str) -> Shell {
-        let world_all = Acl {
-            perms: perms::ALL,
-            scheme: "world".to_string(),
-            id: "anyone".to_string()
-        };
-
         Shell {
             hosts: hosts.to_string(),
             zk: None,
             session_timeout: 5,
-            default_acl: vec![world_all],
+            default_acl: acls::OPEN_ACL_UNSAFE.clone(),
         }
     }
 
@@ -155,14 +149,8 @@ impl Shell {
         let path = args[0];
         let data = args[1].as_bytes().to_vec();
 
-        // FIXME: ACLs are not copyable so we can't use default_acl
-        let world_all = Acl {
-            perms: perms::ALL,
-            scheme: "world".to_string(),
-            id: "anyone".to_string()
-        };
-
-        let ret = zk.create(path, data, vec![world_all], CreateMode::Persistent);
+        let ret = zk.create(
+            path, data, self.default_acl.clone(), CreateMode::Persistent);
 
         match ret {
             Ok(_) => (),
