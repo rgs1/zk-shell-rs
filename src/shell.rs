@@ -11,8 +11,8 @@ use zookeeper::acls;
 struct MyWatcher;
 
 impl Watcher for MyWatcher {
-    fn handle(&self, _e: &WatchedEvent) {
-        // println!("{:?}", e)
+    fn handle(&self, e: &WatchedEvent) {
+        println!("{:?}", e)
     }
 }
 
@@ -106,10 +106,15 @@ impl Shell {
     }
 
     fn get(&mut self, args: Vec<&str>) {
-        let _ = check_args!(args, 1, 1, "<path>");
+        let argc = check_args!(args, 1, 2, "<path> [watch]");
+        let watch = match argc {
+            1 => false,
+            _ => args[1].to_lowercase() == "true"
+        };
+
         let zk = fetch_zk!(self.zk);
         let path = args[0];
-        let ret = zk.get_data(path, false);
+        let ret = zk.get_data(path, watch);
 
         match ret {
             Ok(data_stat) =>  {
@@ -122,11 +127,19 @@ impl Shell {
     }
 
     fn set(&mut self, args: Vec<&str>) {
-        let _ = check_args!(args, 2, 2, "<path> <data>");
+        let argc = check_args!(args, 2, 3, "<path> <data> [version]");
+        let version = match argc {
+            3 => match args[2].parse::<i32>() {
+                Ok(version) => version,
+                Err(_) => -1
+            },
+            _ => -1
+        };
+
         let zk = fetch_zk!(self.zk);
         let path = args[0];
         let data = args[1].as_bytes().to_vec();
-        let ret = zk.set_data(path, data, -1);
+        let ret = zk.set_data(path, data, version);
 
         match ret {
             Ok(_) => (),
@@ -135,10 +148,15 @@ impl Shell {
     }
 
     fn ls(&mut self, args: Vec<&str>) {
-        let _ = check_args!(args, 1, 1, "<path>");
+        let argc = check_args!(args, 1, 2, "<path> [watch]");
+        let watch = match argc {
+            1 => false,
+            _ => args[1].to_lowercase() == "true"
+        };
+
         let zk = fetch_zk!(self.zk);
         let path = args[0];
-        let ret = zk.get_children(path, false);
+        let ret = zk.get_children(path, watch);
 
         match ret {
             Ok(children) => println!("{}", children.join(" ")),
@@ -179,10 +197,18 @@ impl Shell {
     }
 
     fn rm(&mut self, args: Vec<&str>) {
-        let _ = check_args!(args, 1, 1, "<path>");
+        let argc = check_args!(args, 1, 2, "<path> [version]");
+        let version = match argc {
+            2 => match args[1].parse::<i32>() {
+                Ok(version) => version,
+                Err(_) => -1
+            },
+            _ => -1
+        };
+
         let zk = fetch_zk!(self.zk);
         let path = args[0];
-        let ret = zk.delete(path, -1);
+        let ret = zk.delete(path, version);
 
         match ret {
             Ok(()) =>  (),
@@ -191,10 +217,15 @@ impl Shell {
     }
 
     fn exists(&mut self, args: Vec<&str>) {
-        let _ = check_args!(args, 1, 1, "<path>");
+        let argc = check_args!(args, 1, 2, "<path> [watch]");
+        let watch = match argc {
+            1 => false,
+            _ => args[1].to_lowercase() == "true"
+        };
+
         let zk = fetch_zk!(self.zk);
         let path = args[0];
-        let ret = zk.exists(path, false);
+        let ret = zk.exists(path, watch);
 
         match ret {
             Ok(stat) => println!("{:?}", stat),
