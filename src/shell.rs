@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::Write;
 use std::str;
 use std::time::Duration;
 
+use ansi_term::Colour::{White};
 use zookeeper::{Acl, CreateMode, Watcher, WatchedEvent, ZkError, ZooKeeper};
 use zookeeper::acls;
 
@@ -36,13 +38,111 @@ macro_rules! fetch_zk {
 }
 
 macro_rules! check_args {
-    ($args:ident, $min:expr, $max:expr, $params:expr) => (
-        if $args.len() < $min || $args.len() > $max {
+    ($args:ident, $min:expr, $max:expr, $params:expr) => ({
+        // min can be 0, so cast all to isize
+        let len: isize = $args.len() as isize;
+        if len < $min || len > $max {
             println!("Wrong number of arguments, expected parameters: {}", $params);
             return;
         } else {
             $args.len()
+        }
+    })
+}
+
+struct CmdHelp {
+    name: String,
+    desc: String,
+    synopsis: String,
+    options: String,
+    examples: String,
+}
+
+impl CmdHelp {
+    fn new(name: &str, desc: &str, synopsis: &str, options: &str, examples: &str) -> CmdHelp {
+        CmdHelp {
+            name: name.to_string(),
+            desc: desc.to_string(),
+            synopsis: synopsis.to_string(),
+            options: options.to_string(),
+            examples: examples.to_string()
+        }
+    }
+
+    fn name_desc(&self) -> String {
+        format!("{} - {}", self.name, self.desc)
+    }
+
+    fn synopsis_string(&self) -> String {
+        format!("{} {}", self.name, self.synopsis)
+    }
+
+    fn full(&self) -> String {
+        format!("{}\n\t{}\n\n{}\n\t{}\n\n{}\n\t{}\n\n{}\n\t{}\n",
+                White.bold().paint("NAME"), self.name_desc(),
+                White.bold().paint("SYNOPSIS"), self.synopsis_string(),
+                White.bold().paint("OPTIONS"), self.options,
+                White.bold().paint("EXAMPLES"), self.examples
+                )
+    }
+}
+
+lazy_static! {
+    static ref HELP: HashMap<&'static str, CmdHelp> = {
+        let mut m = HashMap::new();
+        m.insert("get",
+                 CmdHelp::new("get", "Gets the znode's value", "<path> [watch]", "", "")
+                 );
+        m.insert("set",
+                 CmdHelp::new("set", "Sets the znode's value", "<path> <data> [version]", "", "")
+                 );
+        m.insert("ls",
+                 CmdHelp::new("ls", "Lists a znode's children", "<path> [watch]", "", ""),
+                 );
+        m.insert("create",
+                 CmdHelp::new("create", "Creates a znode with the given value", "<path> <data> [ephemeral] [sequential]", "", ""),
+                 );
+        m.insert("rm",
+                 CmdHelp::new("rm", "Delete a znode", "<path> [version]", "", ""),
+                 );
+        m.insert("exists",
+                 CmdHelp::new("exists", "Gets the znode's stat information", "<path> [watch]", "", ""),
+                 );
+        m.insert("disconnect",
+                 CmdHelp::new("disconnect", "Disconnects from the server (closing the session)", "", "", ""),
+                 );
+        m.insert("connect",
+                 CmdHelp::new("connect", "Connects to one of the given hosts, creating a session", "<hosts>", "", ""),
+                 );
+        m
+    };
+}
+
+macro_rules! synopsis {
+    ($name:expr) => (
+        match HELP.get($name) {
+            Some(cmdh) => println!("{}", cmdh.synopsis_string()),
+            _ => println!("Unknown command: {}.", $name)
         })
+}
+
+fn help_all() {
+    let mut keys: Vec<_> = HELP.keys().cloned().collect();
+    keys.sort();
+
+    for cmd in keys {
+        match HELP.get(cmd) {
+            Some(cmdh) => println!("{} - {}", White.bold().paint(&*cmdh.name), cmdh.synopsis),
+            _ => {}
+        }
+    }
+}
+
+fn help_full(cmd: &str) {
+    match HELP.get(cmd) {
+        Some(cmdh) => println!("{}", cmdh.full()),
+        _ => println!("Unknown command: {}.", cmd)
+    }
 }
 
 fn report_error(error: ZkError, path: &str) {
@@ -97,6 +197,8 @@ impl Shell {
                 "exists" => self.exists(args),
                 "disconnect" => self.disconnect(),
                 "connect" => self.connect(args),
+                "help" => self.help(args),
+                "man" => self.help(args),
                 unknown => println!("Unknown command: {}", unknown)
             }
         }
@@ -258,5 +360,14 @@ impl Shell {
             Ok(zk) => { self.zk = Some(zk); },
             Err(error) => println!("{:?}", error)
         }
+    }
+
+    fn help(&mut self, args: Vec<&str>) {
+        let argc = check_args!(args, 0, 1, "[cmd]");
+        match argc {
+            1 => help_full(args[0]),
+            _ => help_all()
+        };
+
     }
 }

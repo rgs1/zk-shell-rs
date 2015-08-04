@@ -1,6 +1,9 @@
 #![feature(duration)]
 
+extern crate ansi_term;
 extern crate getopts;
+#[macro_use]
+extern crate lazy_static;
 extern crate zookeeper;
 
 use std::env;

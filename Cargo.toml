@@ -10,4 +10,6 @@ readme = "README.md"
 git = "https://github.com/bonifaido/rust-zookeeper.git"
 
 [dependencies]
+ansi_term = "*"
 getopts = "*"
+lazy_static = "0.1.*"
